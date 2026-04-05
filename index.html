@@ -315,7 +315,9 @@ function advanceField(fieldEl){
 function h(tag,attrs,...ch){
   const el=document.createElement(tag);
   if(attrs)Object.entries(attrs).forEach(([k,v])=>{
+    if(v===undefined||v===null)return;
     if(k==='className')el.className=v;
+    else if(k==='disabled'){if(v===true||v==='true')el.disabled=true;}
     else if(k.startsWith('on'))el.addEventListener(k.slice(2).toLowerCase(),v);
     else if(k==='style'&&typeof v==='object')Object.assign(el.style,v);
     else el.setAttribute(k,v);
@@ -336,7 +338,7 @@ function renderField(field,value,onChange,containerEl){
   if(field.type==='num_dash'){
     const isDash=value==='－';
     return h('div',{className:'num-dash-row'},
-      h('input',{className:'field-input',type:'text',inputMode:'decimal',placeholder:'数値入力',value:isDash?'':String(value??''),disabled:isDash?'true':undefined,
+      h('input',{className:'field-input',type:'text',inputMode:'decimal',placeholder:'数値入力',value:isDash?'':String(value??''),disabled:isDash,
         onInput:(e)=>onChange(e.target.value),onKeydown:onKey}),
       h('button',{className:'dash-btn'+(isDash?' active':''),onClick:()=>{onChange(isDash?'':'－');adv()}},'－'));
   }
@@ -488,7 +490,7 @@ function render(){
   const saveCls=S.saveStatus==='saving'?'saving':S.saveStatus==='saved'?'saved':S.saveStatus==='error'?'error':S.dirty?'dirty':'clean';
   const saveTxt=S.saveStatus==='saving'?'⏳ 保存中...':S.saveStatus==='saved'?'✓ 保存しました':S.saveStatus==='error'?'⚠ 保存失敗 — タップで再試行':S.dirty?'💾 保存する':'💾 保存済み';
   const saveBar=h('div',{className:'save-bar'},
-    h('button',{className:'save-btn '+saveCls,onClick:()=>{if(S.dirty||S.saveStatus==='error')doSave()},disabled:!S.dirty&&S.saveStatus!=='error'?'true':undefined},saveTxt),
+    h('button',{className:'save-btn '+saveCls,onClick:()=>{if(S.dirty||S.saveStatus==='error')doSave()},disabled:!S.dirty&&S.saveStatus!=='error'},saveTxt),
     S.dirty?h('span',{className:'dirty-label'},'未保存あり'):null);
   header.appendChild(saveBar);
 
@@ -542,12 +544,12 @@ function render(){
       const panel=h('div',{className:'datepicker-panel'},h('h3',null,'点検日を追加'));
       const qd=h('div',{className:'quick-dates'});
       for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()-i);const ds2=d.toISOString().split('T')[0];const used=S.dates.includes(ds2);
-        qd.appendChild(h('button',{className:'quick-date-btn'+(used?' used':''),onClick:()=>{if(!used)addDateR(ds2)},disabled:used?'true':undefined},(i===0?'今日':i===1?'昨日':formatDateShort(ds2))+(used?' ✓':'')));}
+        qd.appendChild(h('button',{className:'quick-date-btn'+(used?' used':''),onClick:()=>{if(!used)addDateR(ds2)},disabled:used},(i===0?'今日':i===1?'昨日':formatDateShort(ds2))+(used?' ✓':'')));}
       panel.appendChild(qd);
       panel.appendChild(h('div',{style:{fontSize:'12px',color:'#666',marginBottom:'6px'}},'または日付を選択:'));
       const dir=h('div',{className:'date-input-row'});
       dir.appendChild(h('input',{className:'date-input',type:'date',value:S.newDate,onInput:(e)=>{S.newDate=e.target.value}}));
-      dir.appendChild(h('button',{className:'date-add-btn',disabled:S.dates.includes(S.newDate)?'true':undefined,onClick:()=>addDateR(S.newDate)},S.dates.includes(S.newDate)?'追加済み':'追加'));
+      dir.appendChild(h('button',{className:'date-add-btn',disabled:S.dates.includes(S.newDate),onClick:()=>addDateR(S.newDate)},S.dates.includes(S.newDate)?'追加済み':'追加'));
       dir.appendChild(h('button',{className:'date-close-btn',onClick:()=>{S.showDatePicker=false;render()}},'閉じる'));
       panel.appendChild(dir);da.appendChild(panel);
     }
