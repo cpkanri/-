@@ -280,9 +280,57 @@ function setBulkOk(sec,checks){
   S.dirty=true;saveLocal();render();
 }
 
+function getPrevDayData(newDateStr){
+  // Find the most recent date before or equal to the new date that has data
+  const sorted=[...S.dates].sort().reverse();
+  let prevDate=null;
+  for(const d of sorted){
+    if(d<newDateStr&&S.dayData[d]){prevDate=d;break;}
+  }
+  // If no earlier date, use the most recent date with data
+  if(!prevDate&&sorted.length>0){
+    for(const d of sorted){
+      if(S.dayData[d]){prevDate=d;break;}
+    }
+  }
+  if(!prevDate)return emptyDay();
+  const prev=S.dayData[prevDate];
+  if(!prev)return emptyDay();
+
+  const result=emptyDay();
+
+  // Copy status fields (○△×－) and remarks from equipment
+  if(prev.equipment){
+    Object.entries(prev.equipment).forEach(([k,v])=>{
+      // Copy status values (○△×－)
+      if(v==='○'||v==='△'||v==='×'||v==='－')result.equipment[k]=v;
+      // Copy remarks (eq_remarks_*)
+      if(k.startsWith('eq_remarks_')&&v)result.equipment[k]=v;
+    });
+  }
+
+  // Copy status fields and remarks from electrical
+  if(prev.electrical){
+    Object.entries(prev.electrical).forEach(([k,v])=>{
+      if(v==='○'||v==='△'||v==='×'||v==='－')result.electrical[k]=v;
+      if(k.startsWith('el_remarks_')&&v)result.electrical[k]=v;
+    });
+  }
+
+  // Copy inspector name from waterQuality
+  if(prev.waterQuality){
+    if(prev.waterQuality.inspector)result.waterQuality.inspector=prev.waterQuality.inspector;
+  }
+
+  return result;
+}
+
 async function addDateR(ds){
   if(S.dates.includes(ds)){S.selectedDate=ds;S.showDatePicker=false;render();return}
-  S.dates.push(ds);S.dates.sort();S.dayData[ds]=emptyDay();S.selectedDate=ds;S.showDatePicker=false;S.dirty=true;saveLocal();
+  S.dates.push(ds);S.dates.sort();
+  // Auto-fill from previous date
+  S.dayData[ds]=getPrevDayData(ds);
+  S.selectedDate=ds;S.showDatePicker=false;S.dirty=true;saveLocal();
   try{await apiPost({action:'addDate',date:ds});S.connStatus='online'}catch(e){S.connStatus='error'}
   render();
 }
@@ -322,6 +370,7 @@ function h(tag,attrs,...ch){
     if(v===undefined||v===null)return;
     if(k==='className')el.className=v;
     else if(k==='disabled'){if(v===true||v==='true')el.disabled=true;}
+    else if(k==='value'){el.value=v;}
     else if(k.startsWith('on'))el.addEventListener(k.slice(2).toLowerCase(),v);
     else if(k==='style'&&typeof v==='object')Object.assign(el.style,v);
     else el.setAttribute(k,v);
@@ -434,9 +483,13 @@ function renderGroup(key,title,locStr,items,section,opts){
       body.appendChild(fdiv);
     });
     if(rId){
-      body.appendChild(h('div',{className:'remarks-section'},
-        h('div',{className:'remarks-label'},'備考'),
-        h('textarea',{className:'field-input',rows:'2',placeholder:'備考を入力',value:dd[rId]||'',onInput:(e)=>setField(section,rId,e.target.value)})));
+      const remDiv=document.createElement('div');remDiv.className='remarks-section';
+      const remLabel=document.createElement('div');remLabel.className='remarks-label';remLabel.textContent='備考';
+      const remTa=document.createElement('textarea');remTa.className='field-input';remTa.rows=2;remTa.placeholder='備考を入力';
+      remTa.value=dd[rId]||'';
+      remTa.addEventListener('input',()=>setField(section,rId,remTa.value));
+      remDiv.appendChild(remLabel);remDiv.appendChild(remTa);
+      body.appendChild(remDiv);
     }
     card.appendChild(body);
   }
