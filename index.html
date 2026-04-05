@@ -576,4 +576,7 @@ function render(){
 
 // ─── INIT ───────────────────────────────────────────────────────────────
 if(GAS_URL){S.needSetup=false;render();loadAllData()}
-else{const loc=loadLocal();if(loc){S.dates=loc.dates;S.dayData=loc.dayData;S.selectedDate=S.dates[S.dates.length
+else{const loc=loadLocal();if(loc){S.dates=loc.dates;S.dayData=loc.dayData;S.selectedDate=S.dates[S.dates.length-1]||null;S.loading=false}render()}
+</script>
+</body>
+</html>
