@@ -488,20 +488,6 @@ function renderListTab(){
   return wrap;
 }
 
-function exportCSV(){
-  let csv='\uFEFF';const dates=S.dates,dl=dates.map(d=>formatDateFull(d));
-  csv+='【水質】\n項目,サブ項目,'+dl.join(',')+'\n';
-  WATER_QUALITY_FIELDS.forEach(g=>g.items.forEach(it=>{csv+=`${g.group},${it.label},${dates.map(d=>S.dayData[d]?.waterQuality?.[it.id]??'').join(',')}\n`}));
-  csv+='\n【機器点検】\n機器名,設置場所,点検項目,'+dl.join(',')+'\n';
-  EQUIPMENT_ITEMS.forEach(eq=>{eq.checks.forEach(ch=>{csv+=`${eq.equipment},${eq.location},${ch.label},${dates.map(d=>S.dayData[d]?.equipment?.[ch.id]??'').join(',')}\n`});
-    const rv=dates.map(d=>S.dayData[d]?.equipment?.[eq.remarksId]??'');if(rv.some(v=>v))csv+=`${eq.equipment},,備考,${rv.join(',')}\n`});
-  csv+='\n【電気設備】\n機器名,点検項目,'+dl.join(',')+'\n';
-  ELECTRICAL_ITEMS.forEach(eq=>{eq.checks.forEach(ch=>{csv+=`${eq.equipment},${ch.label},${dates.map(d=>S.dayData[d]?.electrical?.[ch.id]??'').join(',')}\n`});
-    const rv=dates.map(d=>S.dayData[d]?.electrical?.[eq.remarksId]??'');if(rv.some(v=>v))csv+=`${eq.equipment},備考,${rv.join(',')}\n`});
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`wada_report_${dates[0]||'data'}.csv`;a.click();URL.revokeObjectURL(url);
-}
-
 function exportJSON(){
   const blob=new Blob([JSON.stringify({dates:S.dates,dayData:S.dayData},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=`wada_report_${S.dates[0]||'data'}.json`;a.click();URL.revokeObjectURL(url);
@@ -545,7 +531,6 @@ function render(){
 
   if(S.showExport){
     header.appendChild(h('div',{className:'export-panel'},
-      h('button',{className:'export-btn',onClick:exportCSV},'📊 CSV出力'),
       h('button',{className:'export-btn',onClick:exportJSON},'📋 JSON出力')));
   }
   app.appendChild(header);
