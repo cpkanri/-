@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>和田週報入力</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:#f0f2f5;min-height:100vh}
@@ -546,6 +547,448 @@ function exportJSON(){
   const a=document.createElement('a');a.href=url;a.download=`wada_report_${S.dates[0]||'data'}.json`;a.click();URL.revokeObjectURL(url);
 }
 
+function exportXLSX(){
+  if(!S.dates.length){alert('日付データがありません');return}
+  const wb=XLSX.utils.book_new();
+  const dates=S.dates.slice().sort();
+  // Group dates into weeks of 3
+  const weeks=[];
+  for(let i=0;i<dates.length;i+=3){weeks.push(dates.slice(i,i+3))}
+
+  function gv(date,sec,fid){const dd=S.dayData[date];if(!dd)return'';const v=dd[sec]&&dd[sec][fid];return(v===undefined||v===null||v==='')?'':v}
+  function fmtDate(ds){const d=new Date(ds+'T00:00:00');return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+
+  // Helper: set cell with style info
+  function sc(ws,r,c,v,opts){
+    const addr=XLSX.utils.encode_cell({r,c});
+    const cell={v:v,t:typeof v==='number'?'n':'s'};
+    if(opts&&opts.f)cell.f=opts.f;
+    ws[addr]=cell;
+    const range=XLSX.utils.decode_range(ws['!ref']||'A1:A1');
+    if(r>range.e.r)range.e.r=r;if(c>range.e.c)range.e.c=c;
+    if(r<range.s.r)range.s.r=r;if(c<range.s.c)range.s.c=c;
+    ws['!ref']=XLSX.utils.encode_range(range);
+  }
+
+  // =====================================================
+  // SHEET 1: 和田（水質）
+  // =====================================================
+  weeks.forEach((wk,wi)=>{
+    const ws={};ws['!ref']='A1:G55';
+    ws['!merges']=[
+      {s:{r:0,c:0},e:{r:0,c:6}},// A1:G1 title
+      {s:{r:3,c:0},e:{r:3,c:1}},{s:{r:3,c:2},e:{r:3,c:3}},// A4:B4, C4:D4
+      {s:{r:4,c:0},e:{r:4,c:1}},{s:{r:4,c:2},e:{r:4,c:3}},// A5:B5, C5:D5
+      {s:{r:5,c:0},e:{r:5,c:3}},// A6:D6
+      {s:{r:6,c:0},e:{r:6,c:3}},// A7:D7
+      {s:{r:7,c:0},e:{r:10,c:1}},{s:{r:7,c:2},e:{r:7,c:3}},{s:{r:8,c:2},e:{r:8,c:3}},{s:{r:9,c:2},e:{r:9,c:3}},{s:{r:10,c:2},e:{r:10,c:3}},
+      {s:{r:11,c:0},e:{r:14,c:1}},{s:{r:11,c:2},e:{r:11,c:3}},{s:{r:12,c:2},e:{r:12,c:3}},{s:{r:13,c:2},e:{r:13,c:3}},{s:{r:14,c:2},e:{r:14,c:3}},
+      {s:{r:15,c:0},e:{r:18,c:1}},{s:{r:15,c:2},e:{r:15,c:3}},{s:{r:16,c:2},e:{r:16,c:3}},{s:{r:17,c:2},e:{r:17,c:3}},{s:{r:18,c:2},e:{r:18,c:3}},
+      {s:{r:19,c:0},e:{r:20,c:1}},{s:{r:19,c:2},e:{r:19,c:3}},{s:{r:20,c:2},e:{r:20,c:3}},
+      {s:{r:21,c:0},e:{r:21,c:1}},{s:{r:21,c:2},e:{r:21,c:3}},{s:{r:22,c:0},e:{r:22,c:1}},{s:{r:22,c:2},e:{r:22,c:3}},
+      {s:{r:23,c:0},e:{r:23,c:1}},{s:{r:23,c:2},e:{r:23,c:3}},{s:{r:24,c:0},e:{r:24,c:1}},{s:{r:24,c:2},e:{r:24,c:3}},
+      {s:{r:25,c:0},e:{r:26,c:1}},{s:{r:25,c:2},e:{r:25,c:3}},{s:{r:26,c:2},e:{r:26,c:3}},
+      {s:{r:27,c:0},e:{r:31,c:1}},// 生物相
+      // 下部 row32-
+      {s:{r:32,c:2},e:{r:32,c:3}},{s:{r:33,c:2},e:{r:33,c:3}},
+      {s:{r:34,c:0},e:{r:34,c:1}},{s:{r:35,c:0},e:{r:35,c:1}},
+      {s:{r:36,c:0},e:{r:36,c:1}},{s:{r:36,c:2},e:{r:36,c:3}},
+      {s:{r:37,c:0},e:{r:37,c:1}},{s:{r:37,c:2},e:{r:37,c:3}},
+      {s:{r:38,c:0},e:{r:38,c:1}},{s:{r:38,c:2},e:{r:38,c:3}},
+      {s:{r:39,c:0},e:{r:39,c:2}},// 余剰汚泥引抜量
+      {s:{r:40,c:0},e:{r:40,c:2}},// 余剰汚泥抜水量
+      {s:{r:41,c:0},e:{r:41,c:1}},{s:{r:41,c:2},e:{r:41,c:3}},
+      {s:{r:42,c:0},e:{r:42,c:1}},{s:{r:42,c:2},e:{r:42,c:3}},
+      {s:{r:43,c:0},e:{r:43,c:1}},
+      {s:{r:44,c:0},e:{r:44,c:1}},{s:{r:44,c:2},e:{r:44,c:3}},
+      {s:{r:45,c:0},e:{r:45,c:1}},
+      {s:{r:46,c:0},e:{r:46,c:1}},
+      {s:{r:47,c:0},e:{r:47,c:3}},// 水道メーター
+      {s:{r:48,c:0},e:{r:48,c:1}},{s:{r:49,c:0},e:{r:49,c:1}},{s:{r:50,c:0},e:{r:50,c:1}},
+      {s:{r:51,c:0},e:{r:54,c:3}},// 備考
+    ];
+    ws['!cols']=[{wch:9},{wch:9},{wch:7},{wch:10},{wch:17},{wch:17},{wch:17}];
+
+    // Row 1: Title
+    sc(ws,0,0,'和田水資源再生センター運転保守管理週報');
+    // Row 4: headers
+    sc(ws,3,2,'月日・点検者');
+    for(let i=0;i<3;i++){
+      if(wk[i]){
+        sc(ws,3,4+i,fmtDate(wk[i]));
+        sc(ws,4,4+i,gv(wk[i],'waterQuality','inspector'));
+      }
+    }
+    sc(ws,4,0,'項目');sc(ws,4,2,'　');
+    // Row 6: weather
+    sc(ws,5,0,'天候');
+    for(let i=0;i<3;i++){if(wk[i])sc(ws,5,4+i,gv(wk[i],'waterQuality','weather'))}
+    // Row 7: air temp
+    sc(ws,6,0,'気  温（℃）');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','air_temp');sc(ws,6,4+i,v===''?'':Number(v)||v)}}
+    // Row 8-11: water temp
+    sc(ws,7,0,'水  温（℃）');
+    const wtFields=['wt_inflow','wt_aer1','wt_aer2','wt_outflow'];
+    const wtLabels=['流入','1系曝気槽','2系曝気槽','放流'];
+    wtFields.forEach((f,j)=>{
+      sc(ws,7+j,2,wtLabels[j]);
+      for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality',f);sc(ws,7+j,4+i,v===''?'':Number(v)||v)}}
+    });
+    // Row 12-15: transparency
+    sc(ws,11,0,'透視度');
+    const trFields=['tr_inflow','tr_sed1','tr_sed2','tr_outflow'];
+    const trLabels=['流入','1系沈澱池','2系沈澱池','放流'];
+    trFields.forEach((f,j)=>{
+      sc(ws,11+j,2,trLabels[j]);
+      for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality',f);sc(ws,11+j,4+i,v===''?'':Number(v)||v)}}
+    });
+    // Row 16-19: pH
+    sc(ws,15,0,'ｐH');
+    const phFields=['ph_inflow','ph_aer1','ph_aer2','ph_outflow'];
+    const phLabels=['流入','1系曝気槽','2系曝気槽','放流'];
+    phFields.forEach((f,j)=>{
+      sc(ws,15+j,2,phLabels[j]);
+      for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality',f);sc(ws,15+j,4+i,v===''?'':Number(v)||v)}}
+    });
+    // Row 20-21: SV
+    sc(ws,19,0,'SV');
+    sc(ws,19,2,'1系');sc(ws,20,2,'2系');
+    for(let i=0;i<3;i++){if(wk[i]){
+      const v1=gv(wk[i],'waterQuality','sv1');sc(ws,19,4+i,v1===''?'':Number(v1)||v1);
+      const v2=gv(wk[i],'waterQuality','sv2');sc(ws,20,4+i,v2===''?'':Number(v2)||v2);
+    }}
+    // Row 22-23: DO
+    sc(ws,21,0,'曝気槽DO');sc(ws,22,0,'（mg/l）');
+    sc(ws,21,2,'1系');sc(ws,22,2,'2系');
+    for(let i=0;i<3;i++){if(wk[i]){
+      const v1=gv(wk[i],'waterQuality','do1');sc(ws,21,4+i,v1===''?'':Number(v1)||v1);
+      const v2=gv(wk[i],'waterQuality','do2');sc(ws,22,4+i,v2===''?'':Number(v2)||v2);
+    }}
+    // Row 24-25: MLSS
+    sc(ws,23,0,'MLSS');sc(ws,24,0,'（mg/l）');
+    sc(ws,23,2,'1系');sc(ws,24,2,'2系');
+    for(let i=0;i<3;i++){if(wk[i]){
+      const v1=gv(wk[i],'waterQuality','mlss1');sc(ws,23,4+i,v1===''?'':Number(v1)||v1);
+      const v2=gv(wk[i],'waterQuality','mlss2');sc(ws,24,4+i,v2===''?'':Number(v2)||v2);
+    }}
+    // Row 26-27: SVI (formula)
+    sc(ws,25,0,'SVI');
+    sc(ws,25,2,'1系');sc(ws,26,2,'2系');
+    for(let i=0;i<3;i++){if(wk[i]){
+      const sv1=gv(wk[i],'waterQuality','sv1'),mlss1=gv(wk[i],'waterQuality','mlss1');
+      const sv2=gv(wk[i],'waterQuality','sv2'),mlss2=gv(wk[i],'waterQuality','mlss2');
+      if(sv1!==''&&mlss1!==''&&Number(mlss1)!==0)sc(ws,25,4+i,Math.round(Number(sv1)*10000/Number(mlss1)*100)/100);
+      if(sv2!==''&&mlss2!==''&&Number(mlss2)!==0)sc(ws,26,4+i,Math.round(Number(sv2)*10000/Number(mlss2)*100)/100);
+    }}
+    // Row 28-32: 生物相
+    sc(ws,27,0,'生物相');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','bio');if(v)sc(ws,27,4+i,v)}}
+
+    // Lower section Row 33-34: headers (repeat)
+    sc(ws,32,2,'月日・点検者');
+    sc(ws,33,0,'項目');sc(ws,33,2,'　');
+    for(let i=0;i<3;i++){if(wk[i]){
+      sc(ws,32,4+i,fmtDate(wk[i]));
+      sc(ws,33,4+i,gv(wk[i],'waterQuality','inspector'));
+    }}
+    // Row 35-36: 沈殿槽界面
+    sc(ws,34,0,'沈殿槽界面1系');sc(ws,34,2,'（ｍ）');
+    sc(ws,35,0,'沈殿槽界面2系');sc(ws,35,2,'（ｍ）');
+    for(let i=0;i<3;i++){if(wk[i]){
+      const v1=gv(wk[i],'waterQuality','sed_if1');sc(ws,34,4+i,v1===''?'':Number(v1)||v1);
+      const v2=gv(wk[i],'waterQuality','sed_if2');sc(ws,35,4+i,v2===''?'':Number(v2)||v2);
+    }}
+    // Row 37: 残留塩素
+    sc(ws,36,0,'残留塩素');sc(ws,36,2,'（mg/l）');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','chlorine');sc(ws,36,4+i,v===''?'':Number(v)||v)}}
+    // Row 38-39: 返送汚泥濃度
+    sc(ws,37,0,'返送汚泥濃度1系');sc(ws,37,2,'(mg/l)');
+    sc(ws,38,0,'返送汚泥濃度2系');sc(ws,38,2,'(mg/l)');
+    for(let i=0;i<3;i++){if(wk[i]){
+      const v1=gv(wk[i],'waterQuality','rs1');sc(ws,37,4+i,v1===''?'':Number(v1)||v1);
+      const v2=gv(wk[i],'waterQuality','rs2');sc(ws,38,4+i,v2===''?'':Number(v2)||v2);
+    }}
+    // Row 40: 余剰汚泥引抜量
+    sc(ws,39,0,'余剰汚泥引抜量');sc(ws,39,3,'(m3)');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','excess_extract');if(v!=='')sc(ws,39,4+i,Number(v)||v)}}
+    // Row 41: 余剰汚泥抜水量
+    sc(ws,40,0,'余剰汚泥抜水量');sc(ws,40,3,'(m3)');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','excess_drain');if(v!=='')sc(ws,40,4+i,Number(v)||v)}}
+    // Row 42-43: 貯留槽水位
+    sc(ws,41,0,'貯留槽水位');sc(ws,41,2,'処理汚泥搬出前');
+    sc(ws,42,0,'(m)');sc(ws,42,2,'処理汚泥搬出後');
+    for(let i=0;i<3;i++){if(wk[i]){
+      const vb=gv(wk[i],'waterQuality','tank_before');if(vb!=='')sc(ws,41,4+i,vb);
+      const va=gv(wk[i],'waterQuality','tank_after');if(va!=='')sc(ws,42,4+i,va);
+    }}
+    // Row 44: 処理汚泥量
+    sc(ws,43,0,'処理汚泥量');sc(ws,43,2,'(m3)');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','sludge_vol');if(v!=='')sc(ws,43,4+i,Number(v)||v)}}
+    // Row 45: 処理汚泥濃度
+    sc(ws,44,0,'処理汚泥濃度');sc(ws,44,2,'(mg/l)');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','sludge_conc');if(v!=='')sc(ws,44,4+i,Number(v)||v)}}
+    // Row 46: しさ
+    sc(ws,45,0,'しさ');sc(ws,45,2,'(kg)');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','screenings');if(v!=='')sc(ws,45,4+i,Number(v)||v)}}
+    // Row 47: 固形滅菌剤
+    sc(ws,46,0,'固形滅菌剤');sc(ws,46,2,'(kg)');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','chlorine_tab');if(v!=='')sc(ws,46,4+i,Number(v)||v)}}
+    // Row 48: 水道メーター
+    sc(ws,47,0,'水道メーター');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','water_meter');if(v!=='')sc(ws,47,4+i,Number(v)||v)}}
+    // Row 49-51: COD, TN, TP
+    sc(ws,48,0,'COD');sc(ws,48,2,'濃度');sc(ws,48,3,'(mg/l)');
+    sc(ws,49,0,'全窒素');sc(ws,49,2,'濃度');sc(ws,49,3,'(mg/l)');
+    sc(ws,50,0,'全リン');sc(ws,50,2,'濃度');sc(ws,50,3,'(mg/l)');
+    for(let i=0;i<3;i++){if(wk[i]){
+      const vc=gv(wk[i],'waterQuality','cod');if(vc!=='')sc(ws,48,4+i,Number(vc)||vc);
+      const vn=gv(wk[i],'waterQuality','tn');if(vn!=='')sc(ws,49,4+i,Number(vn)||vn);
+      const vp=gv(wk[i],'waterQuality','tp');if(vp!=='')sc(ws,50,4+i,Number(vp)||vp);
+    }}
+    // Row 52: 備考
+    sc(ws,51,0,'備　　   　 考');
+    for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'waterQuality','wq_remarks');if(v)sc(ws,51,4,v)}}
+
+    const sheetName=weeks.length>1?`和田（水質）${wi+1}`:'和田（水質）';
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  });
+
+  // =====================================================
+  // SHEET 2: 和田 (機器) - all 3 pages in one sheet
+  // =====================================================
+  weeks.forEach((wk,wi)=>{
+    const ws={};ws['!ref']='A1:H145';
+    ws['!cols']=[{wch:20},{wch:16},{wch:28},{wch:8},{wch:8},{wch:8},{wch:9},{wch:9}];
+
+    // The equipment sheet has 3 pages. We lay them out vertically.
+    // Page 1: rows 1-59, Page 2: rows 61-124, Page 3: rows 127-145
+    function writePage(startRow,title,eqList,pageNum){
+      const r0=startRow-1;// 0-based
+      sc(ws,r0,2,'機器点検チェックリスト（点検週報）');
+      sc(ws,r0+2,0,`和田水資源再生センター処理場（${pageNum}／３）`);
+      sc(ws,r0+4,0,'　　　　　　　　凡例：　○…正常　、△…注意　、×…不良　、－…休止　　　');
+      sc(ws,r0+6,0,'機器名');sc(ws,r0+6,1,'設置場所');sc(ws,r0+6,2,'点検項目');
+      sc(ws,r0+6,3,'点検結果');sc(ws,r0+6,6,'　　　　備　　　考');
+      sc(ws,r0+7,3,'月日・点検者');
+      for(let i=0;i<3;i++){
+        if(wk[i]){
+          sc(ws,r0+8,3+i,fmtDate(wk[i]));
+          sc(ws,r0+9,3+i,gv(wk[i],'waterQuality','inspector'));
+        }
+      }
+      let row=r0+10;
+      eqList.forEach(eq=>{
+        const eqIdx=EQUIPMENT_ITEMS.indexOf(eq);
+        sc(ws,row,0,eq.equipment);
+        if(eq.location)sc(ws,row,1,eq.location);
+        eq.checks.forEach((chk,ci)=>{
+          sc(ws,row+ci,2,chk.label==='異音・振動'?'運転中の異音、振動の有無':
+            chk.label==='異音・振動・異温'?'運転中の異音、振動、異温の有無':
+            chk.label==='外観'?'外観':
+            chk.label==='運転状況'?'運転状況':
+            chk.label==='駆動チェーン'?'駆動チェーンの状況':
+            chk.label==='異物の除去'?'異物の除去':
+            chk.label==='電動機・軸受過熱'?'電動機、軸受の過熱':
+            chk.label==='ベルトの状態'?'ベルトの状態':
+            chk.label==='減速機の油量'?'減速機の油量':
+            chk.label==='その他異常'?'その他の異常の有無':
+            chk.label==='薬品の確認・補充'?'薬品の確認・補充':
+            chk.label==='サンプリング水異常'?'サンプリング水の異常の有無':
+            chk.label==='機器の異常'?'機器の異常の有無':
+            chk.label==='屋内外照明'?'異常の有無':
+            chk.label==='ケーブルダクト・ピット'?'異常の有無':
+            chk.label==='開口部の覆蓋'?'開口部の有無の確認':
+            chk.label==='建物廻り'?'異常の有無':
+            chk.label==='差圧'?'差圧':
+            chk.label);
+          for(let i=0;i<3;i++){
+            if(wk[i]){
+              const v=gv(wk[i],'equipment',chk.id);
+              sc(ws,row+ci,3+i,v===''?'':v);
+            }
+          }
+        });
+        // Handle "その他" equipment sub-items (location column labels)
+        if(eq.equipment==='その他'){
+          const subLabels=['屋内外の照明','ケーブルダクト、ピット','開口部の覆蓋','建物廻り'];
+          eq.checks.forEach((chk,ci)=>{if(subLabels[ci])sc(ws,row+ci,1,subLabels[ci])});
+        }
+        row+=eq.checks.length;
+      });
+      return row;
+    }
+
+    // Split equipment items into 3 pages matching original
+    const page1=EQUIPMENT_ITEMS.slice(0,11);// スクリーンユニット ~ NO.2汚泥掻寄機
+    const page2=EQUIPMENT_ITEMS.slice(11,24);// スカムスキマー ~ 排水ポンプ
+    const page3=EQUIPMENT_ITEMS.slice(24);// 配管 ~ end
+
+    writePage(1,'１',page1,'１');
+    writePage(61,'２',page2,'２');
+    writePage(127,'３',page3,'３');
+
+    const sheetName=weeks.length>1?`和田 (機器)${wi+1}`:'和田 (機器)';
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  });
+
+  // =====================================================
+  // SHEET 3: 和田 (電気)
+  // =====================================================
+  weeks.forEach((wk,wi)=>{
+    const ws={};ws['!ref']='A1:G43';
+    ws['!cols']=[{wch:16},{wch:30},{wch:10},{wch:8},{wch:8},{wch:8},{wch:9}];
+
+    sc(ws,0,1,'電気設備点検チェックリスト（点検週報）');
+    sc(ws,3,0,'和田水資源再生センター処理場（１／１）');
+    sc(ws,5,0,'　　　　　　　　凡例：　○…正常　、△…注意　、×…不良　、－…休止　　　');
+    sc(ws,7,0,'機器名');sc(ws,7,1,'点検項目');sc(ws,7,2,'繰越');
+    sc(ws,7,3,'点検結果');sc(ws,7,6,'　　　　備　　　考');
+    sc(ws,8,3,'月日・点検者');
+    for(let i=0;i<3;i++){
+      if(wk[i]){
+        sc(ws,9,3+i,fmtDate(wk[i]));
+        sc(ws,10,3+i,gv(wk[i],'waterQuality','inspector'));
+      }
+    }
+
+    // 引込・受電 row12-19
+    sc(ws,11,0,'引込・受電');
+    const elMap=[
+      {r:11,label:'電圧（V)',id:'el_voltage',type:'n'},
+      {r:12,label:'モード',id:'el_mode',type:'s'},
+      {r:13,label:'力率',id:'el_pf',type:'n'},
+      {r:14,label:'電流（A)',id:'el_current',type:'n'},
+      {r:15,label:'普通電力量（×10KW)',id:'el_power',type:'n',hasCarry:true},
+      {r:16,label:'使用量（×10KW)',id:null,type:'calc_power'},
+      {r:17,label:'端子の変色の有無',id:'el_terminal',type:'s'},
+      {r:18,label:'その他異常の有無',id:'el_other',type:'s'},
+    ];
+    // Track previous power values for usage calc
+    let prevPower='';
+    elMap.forEach(m=>{
+      sc(ws,m.r,1,m.label);
+      if(m.type==='calc_power'){
+        // usage = current - previous
+        // We'll compute it inline
+        for(let i=0;i<3;i++){
+          if(wk[i]){
+            const cur=gv(wk[i],'electrical','el_power');
+            // Find prev: either previous day's power or carry
+            let prev='';
+            if(i===0){
+              // Look for the carry value (繰越)
+              // We store it if available, otherwise leave blank
+              prev=prevPower;
+            }else{
+              prev=gv(wk[i-1],'electrical','el_power');
+            }
+            if(cur!==''&&prev!==''){
+              sc(ws,m.r,3+i,Number(cur)-Number(prev));
+            }
+          }
+        }
+      }else{
+        for(let i=0;i<3;i++){
+          if(wk[i]){
+            const v=gv(wk[i],'electrical',m.id);
+            if(v!==''){
+              sc(ws,m.r,3+i,m.type==='n'?(Number(v)||v):v);
+            }
+          }
+        }
+        if(m.hasCarry){
+          // Write carry column (C column)
+          // Use the first date's power as carry? Or find from previous week
+          if(wi>0){
+            const prevWeek=weeks[wi-1];
+            const lastDate=prevWeek[prevWeek.length-1];
+            if(lastDate){
+              const v=gv(lastDate,'electrical','el_power');
+              if(v!==''){sc(ws,m.r,2,Number(v)||v);prevPower=v}
+            }
+          }
+        }
+      }
+    });
+
+    // 変圧器 row20-23
+    sc(ws,19,0,'変圧器');
+    const trMap=[
+      {r:19,label:'主変圧器温度（℃）',id:'tr_temp',type:'n'},
+      {r:20,label:'異音・異臭の有無',id:'tr_noise',type:'s'},
+      {r:21,label:'端子の変色の有無',id:'tr_terminal',type:'s'},
+      {r:22,label:'その他異常の有無',id:'tr_other',type:'s'},
+    ];
+    trMap.forEach(m=>{
+      sc(ws,m.r,1,m.label);
+      for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'electrical',m.id);if(v!=='')sc(ws,m.r,3+i,m.type==='n'?(Number(v)||v):v)}}
+    });
+
+    // 低圧分岐 row24-40
+    sc(ws,23,0,'低圧分岐');
+    let prevCC1='',prevCC2='';
+    if(wi>0){
+      const prevWeek=weeks[wi-1];const lastDate=prevWeek[prevWeek.length-1];
+      if(lastDate){prevCC1=gv(lastDate,'electrical','lv_cc1_power');prevCC2=gv(lastDate,'electrical','lv_cc2_power')}
+    }
+    const lvMap=[
+      {r:23,label:'動力電圧（V)',id:'lv_mv',type:'n'},
+      {r:24,label:'動力電流（A)',id:'lv_mc',type:'n'},
+      {r:25,label:'照明電流（A)',id:'lv_lc',type:'n'},
+      {r:26,label:'NO.1コントロールセンター(×1KW)電力量',id:'lv_cc1_power',type:'n',hasCarry:true,carryKey:'cc1'},
+      {r:27,label:'NO.1コントロールセンター(×1KW)使用量',id:null,type:'calc',calcId:'lv_cc1_power',carryKey:'cc1'},
+      {r:28,label:'NO.1コントロールセンター動力電圧（V)',id:'lv_cc1_voltage',type:'n'},
+      {r:29,label:'モード',id:'lv_cc1_mode',type:'s'},
+      {r:30,label:'NO.1コントロールセンター動力電流（A)',id:'lv_cc1_current',type:'n'},
+      {r:31,label:'NO.2コントロールセンター(×1KW)電力量',id:'lv_cc2_power',type:'n',hasCarry:true,carryKey:'cc2'},
+      {r:32,label:'NO.2コントロールセンター(×1KW)使用量',id:null,type:'calc',calcId:'lv_cc2_power',carryKey:'cc2'},
+      {r:33,label:'NO.2コントロールセンター動力電圧（V)',id:'lv_cc2_voltage',type:'n'},
+      {r:34,label:'モード',id:'lv_cc2_mode',type:'s'},
+      {r:35,label:'NO.2コントロールセンター動力電流（A)',id:'lv_cc2_current',type:'n'},
+      {r:36,label:'No.1コンデンサ（電磁接触器）',id:'lv_cond1',type:'s'},
+      {r:37,label:'No.2コンデンサ（電磁接触器）',id:'lv_cond2',type:'s'},
+      {r:38,label:'端子の変色の有無',id:'lv_terminal',type:'s'},
+      {r:39,label:'その他の異常の有無',id:'lv_other',type:'s'},
+    ];
+    const carries={cc1:prevCC1,cc2:prevCC2};
+    lvMap.forEach(m=>{
+      sc(ws,m.r,1,m.label);
+      if(m.type==='calc'){
+        for(let i=0;i<3;i++){
+          if(wk[i]){
+            const cur=gv(wk[i],'electrical',m.calcId);
+            let prev='';
+            if(i===0){prev=carries[m.carryKey]}
+            else{prev=gv(wk[i-1],'electrical',m.calcId)}
+            if(cur!==''&&prev!=='')sc(ws,m.r,3+i,Number(cur)-Number(prev));
+          }
+        }
+      }else{
+        for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'electrical',m.id);if(v!=='')sc(ws,m.r,3+i,m.type==='n'?(Number(v)||v):v)}}
+        if(m.hasCarry&&carries[m.carryKey]!==''){sc(ws,m.r,2,Number(carries[m.carryKey])||carries[m.carryKey])}
+      }
+    });
+
+    // 発電機 row41-43
+    sc(ws,40,0,'発電機');
+    const genMap=[
+      {r:40,label:'エンジンの漏油・漏水の有無',id:'gen_leak',type:'s'},
+      {r:41,label:'燃料の確認・補充',id:'gen_fuel',type:'s'},
+      {r:42,label:'その他の異常の有無',id:'gen_other',type:'s'},
+    ];
+    genMap.forEach(m=>{
+      sc(ws,m.r,1,m.label);
+      for(let i=0;i<3;i++){if(wk[i]){const v=gv(wk[i],'electrical',m.id);if(v!=='')sc(ws,m.r,3+i,v)}}
+    });
+
+    const sheetName=weeks.length>1?`和田 (電気)${wi+1}`:'和田 (電気 )';
+    XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  });
+
+  // Download
+  XLSX.writeFile(wb,`和田週報_${dates[0]||'data'}.xlsx`);
+}
+
 // ─── MAIN RENDER ────────────────────────────────────────────────────────
 function render(){
   const app=document.getElementById('app');app.innerHTML='';
@@ -584,7 +1027,7 @@ function render(){
 
   if(S.showExport){
     header.appendChild(h('div',{className:'export-panel'},
-      h('button',{className:'export-btn',onClick:exportJSON},'📋 JSON出力')));
+      h('button',{className:'export-btn',onClick:exportXLSX},'📊 Excel出力')));
   }
   app.appendChild(header);
 
