@@ -224,10 +224,10 @@ async function loadAllData(){
     if(!S.selectedDate||!S.dates.includes(S.selectedDate))S.selectedDate=S.dates[S.dates.length-1]||null;
     S.connStatus='online';saveLocal();}else{
       console.error('API returned error:',r);
-      S.connStatus='error';const loc=loadLocal();if(loc){S.dates=loc.dates;S.dayData=loc.dayData;S.selectedDate=S.dates[S.dates.length-1]||null}}
+      S.connStatus='error';S.connError='API: '+(r.error||JSON.stringify(r));const loc=loadLocal();if(loc){S.dates=loc.dates;S.dayData=loc.dayData;S.selectedDate=S.dates[S.dates.length-1]||null}}
   }catch(e){
     console.error('loadAllData failed:',e);
-    S.connStatus='error';const loc=loadLocal();if(loc){S.dates=loc.dates;S.dayData=loc.dayData;S.selectedDate=S.dates[S.dates.length-1]||null}
+    S.connStatus='error';S.connError=e.message||String(e);const loc=loadLocal();if(loc){S.dates=loc.dates;S.dayData=loc.dayData;S.selectedDate=S.dates[S.dates.length-1]||null}
   }
   S.loading=false;render();
 }
@@ -823,7 +823,7 @@ function render(){
   // Conn bar
   if(S.connStatus!=='online'){
     app.appendChild(h('div',{className:'conn-bar '+S.connStatus,onClick:()=>{S.loading=true;render();loadAllData()}},
-      S.connStatus==='error'?'⚠ 接続エラー — タップで再接続':'接続を確認中...'));
+      S.connStatus==='error'?'⚠ 接続エラー'+(S.connError?' ('+S.connError+')':'')+' — タップで再接続':'接続を確認中...'));
   }
 
   // Tabs
