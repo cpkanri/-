@@ -259,13 +259,16 @@ function scheduleAutoSave(){
   autoSaveTimer=setTimeout(()=>{if(S.dirty&&GAS_URL)doSave()},5000);
 }
 
+let renderTimer=null;
 function setField(sec,fieldId,val){
   const d=S.selectedDate;if(!d)return;
   if(!S.dayData[d])S.dayData[d]=emptyDay();
   S.dayData[d][sec][fieldId]=val;
   S.dirty=true;
   saveLocal();
-  render();
+  // Debounce render to avoid losing focus during typing
+  clearTimeout(renderTimer);
+  renderTimer=setTimeout(()=>render(),800);
   scheduleAutoSave();
 }
 
@@ -328,7 +331,6 @@ function h(tag,attrs,...ch){
 
 function renderField(field,value,onChange,containerEl){
   const adv=()=>setTimeout(()=>advanceField(containerEl),100);
-  const onKey=(e)=>{if(e.key==='Enter'){e.preventDefault();adv()}};
 
   if(field.type==='status'){
     return h('div',{className:'status-row'},STATUS_OPTIONS.map(s=>
@@ -339,12 +341,12 @@ function renderField(field,value,onChange,containerEl){
     const isDash=value==='－';
     return h('div',{className:'num-dash-row'},
       h('input',{className:'field-input',type:'text',inputMode:'decimal',placeholder:'数値入力',value:isDash?'':String(value??''),disabled:isDash,
-        onInput:(e)=>onChange(e.target.value),onKeydown:onKey}),
+        onInput:(e)=>onChange(e.target.value)}),
       h('button',{className:'dash-btn'+(isDash?' active':''),onClick:()=>{onChange(isDash?'':'－');adv()}},'－'));
   }
   if(field.type==='signed_number'){
     return h('input',{className:'field-input',type:'text',inputMode:'decimal',placeholder:'例: -0.79',value:String(value??''),
-      onInput:(e)=>onChange(e.target.value),onKeydown:onKey});
+      onInput:(e)=>onChange(e.target.value)});
   }
   if(field.type==='select'){
     return h('div',{className:'select-row'},field.options.map(opt=>
@@ -353,9 +355,9 @@ function renderField(field,value,onChange,containerEl){
   if(field.type==='textarea'){
     return h('textarea',{className:'field-input',rows:'3',placeholder:'入力してください',value:value||'',onInput:(e)=>onChange(e.target.value)});
   }
-  // number & text: keep as string for decimal preservation
+  // number & text: no auto-advance, just save on input
   return h('input',{className:'field-input',type:'text',inputMode:field.type==='number'?'decimal':'text',
-    placeholder:'入力してください',value:String(value??''),onInput:(e)=>onChange(e.target.value),onKeydown:onKey});
+    placeholder:'入力してください',value:String(value??''),onInput:(e)=>onChange(e.target.value)});
 }
 
 function renderGroup(key,title,locStr,items,section,opts){
@@ -574,7 +576,4 @@ function render(){
 
 // ─── INIT ───────────────────────────────────────────────────────────────
 if(GAS_URL){S.needSetup=false;render();loadAllData()}
-else{const loc=loadLocal();if(loc){S.dates=loc.dates;S.dayData=loc.dayData;S.selectedDate=S.dates[S.dates.length-1]||null;S.loading=false}render()}
-</script>
-</body>
-</html>
+else{const loc=loadLocal();if(loc){S.dates=loc.dates;S.dayData=loc.dayData;S.selectedDate=S.dates[S.dates.length
