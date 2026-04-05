@@ -541,28 +541,24 @@ function renderListTab(){
   return wrap;
 }
 
-function exportExcel(){
+async function exportExcel(){
   if(!S.dates.length){alert('日付データがありません');return}
   if(S.exporting)return;
   S.exporting=true;render();
-  const dates=S.dates.slice().sort();
-  fetch(GAS_URL,{method:'POST',body:JSON.stringify({action:'exportExcel',dates:dates,dayData:S.dayData})})
-    .then(r=>r.json())
-    .then(res=>{
-      S.exporting=false;
-      if(res.success&&res.downloadUrl){
-        window.open(res.downloadUrl,'_blank');
-        render();
-      }else{
-        alert('Excel出力に失敗しました: '+(res.error||'不明なエラー'));
-        render();
-      }
-    })
-    .catch(err=>{
-      S.exporting=false;
-      alert('Excel出力に失敗しました: '+err.message);
-      render();
-    });
+  try{
+    const dates=S.dates.slice().sort();
+    const res=await apiPost({action:'exportExcel',dates:dates,dayData:S.dayData});
+    S.exporting=false;
+    if(res.success&&res.downloadUrl){
+      window.open(res.downloadUrl,'_blank');
+    }else{
+      alert('Excel出力に失敗しました: '+(res.error||'不明なエラー'));
+    }
+  }catch(err){
+    S.exporting=false;
+    alert('Excel出力に失敗しました: '+err.message);
+  }
+  render();
 }
 
 // ─── MAIN RENDER ────────────────────────────────────────────────────────
