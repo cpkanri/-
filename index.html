@@ -252,31 +252,32 @@ async function doSave(){
   }catch(e){console.error(e);S.saveStatus='error';S.connStatus='error';render();setTimeout(()=>{S.saveStatus='';render()},3000)}
 }
 
-// Auto-save with debounce
-let autoSaveTimer=null;
-function scheduleAutoSave(){
-  clearTimeout(autoSaveTimer);
-  autoSaveTimer=setTimeout(()=>{if(S.dirty&&GAS_URL)doSave()},5000);
-}
-
-let renderTimer=null;
+// Auto-save disabled - save only on explicit button press
 function setField(sec,fieldId,val){
   const d=S.selectedDate;if(!d)return;
   if(!S.dayData[d])S.dayData[d]=emptyDay();
   S.dayData[d][sec][fieldId]=val;
   S.dirty=true;
   saveLocal();
-  // Debounce render to avoid losing focus during typing
-  clearTimeout(renderTimer);
-  renderTimer=setTimeout(()=>render(),800);
-  scheduleAutoSave();
+  // Update save button text without full re-render
+  const saveBtn=document.querySelector('.save-btn');
+  if(saveBtn&&!saveBtn.classList.contains('dirty')){
+    saveBtn.className='save-btn dirty';
+    saveBtn.textContent='\u{1F4BE} 保存する';
+    saveBtn.disabled=false;
+  }
+  const dirtyLbl=document.querySelector('.dirty-label');
+  if(!dirtyLbl){
+    const bar=document.querySelector('.save-bar');
+    if(bar){const sp=document.createElement('span');sp.className='dirty-label';sp.textContent='未保存あり';bar.appendChild(sp)}
+  }
 }
 
 function setBulkOk(sec,checks){
   const d=S.selectedDate;if(!d)return;
   if(!S.dayData[d])S.dayData[d]=emptyDay();
   checks.forEach(ch=>{if(ch.type==='status')S.dayData[d][sec][ch.id]='○'});
-  S.dirty=true;saveLocal();render();scheduleAutoSave();
+  S.dirty=true;saveLocal();render();
 }
 
 async function addDateR(ds){
@@ -331,33 +332,79 @@ function h(tag,attrs,...ch){
 
 function renderField(field,value,onChange,containerEl){
   const adv=()=>setTimeout(()=>advanceField(containerEl),100);
+  const onKey=(e)=>{if(e.key==='Enter'){e.preventDefault();adv()}};
 
   if(field.type==='status'){
-    return h('div',{className:'status-row'},STATUS_OPTIONS.map(s=>
-      h('button',{className:'status-btn'+(value===s?(' sel-'+(s==='○'?'ok':s==='△'?'warn':s==='×'?'bad':'off')):''),
-        onClick:()=>{onChange(s);adv()}},s)));
+    const row=document.createElement('div');row.className='status-row';
+    STATUS_OPTIONS.forEach(s=>{
+      const btn=document.createElement('button');
+      btn.className='status-btn'+(value===s?(' sel-'+(s==='○'?'ok':s==='△'?'warn':s==='×'?'bad':'off')):'');
+      btn.textContent=s;
+      btn.addEventListener('click',()=>{
+        onChange(s);
+        // Update buttons visually without re-render
+        row.querySelectorAll('.status-btn').forEach(b=>{
+          b.className='status-btn';
+        });
+        btn.className='status-btn sel-'+(s==='○'?'ok':s==='△'?'warn':s==='×'?'bad':'off');
+        adv();
+      });
+      row.appendChild(btn);
+    });
+    return row;
   }
   if(field.type==='num_dash'){
     const isDash=value==='－';
-    return h('div',{className:'num-dash-row'},
-      h('input',{className:'field-input',type:'text',inputMode:'decimal',placeholder:'数値入力',value:isDash?'':String(value??''),disabled:isDash,
-        onInput:(e)=>onChange(e.target.value)}),
-      h('button',{className:'dash-btn'+(isDash?' active':''),onClick:()=>{onChange(isDash?'':'－');adv()}},'－'));
+    const wrap=document.createElement('div');wrap.className='num-dash-row';
+    const inp=document.createElement('input');inp.className='field-input';inp.type='text';inp.inputMode='decimal';inp.placeholder='数値入力';
+    inp.value=isDash?'':String(value??'');if(isDash)inp.disabled=true;
+    inp.addEventListener('input',()=>onChange(inp.value));
+    inp.addEventListener('keydown',onKey);
+    const dashBtn=document.createElement('button');dashBtn.className='dash-btn'+(isDash?' active':'');dashBtn.textContent='－';
+    dashBtn.addEventListener('click',()=>{
+      if(isDash){onChange('');inp.disabled=false;inp.value='';dashBtn.className='dash-btn';}
+      else{onChange('－');inp.disabled=true;inp.value='';dashBtn.className='dash-btn active';}
+      adv();
+    });
+    wrap.appendChild(inp);wrap.appendChild(dashBtn);
+    return wrap;
   }
   if(field.type==='signed_number'){
-    return h('input',{className:'field-input',type:'text',inputMode:'decimal',placeholder:'例: -0.79',value:String(value??''),
-      onInput:(e)=>onChange(e.target.value)});
+    const inp=document.createElement('input');inp.className='field-input';inp.type='text';inp.inputMode='decimal';inp.placeholder='例: -0.79';
+    inp.value=String(value??'');
+    inp.addEventListener('input',()=>onChange(inp.value));
+    inp.addEventListener('keydown',onKey);
+    return inp;
   }
   if(field.type==='select'){
-    return h('div',{className:'select-row'},field.options.map(opt=>
-      h('button',{className:'select-btn'+(value===opt?' active':''),onClick:()=>{onChange(opt);adv()}},opt)));
+    const row=document.createElement('div');row.className='select-row';
+    field.options.forEach(opt=>{
+      const btn=document.createElement('button');
+      btn.className='select-btn'+(value===opt?' active':'');
+      btn.textContent=opt;
+      btn.addEventListener('click',()=>{
+        onChange(opt);
+        row.querySelectorAll('.select-btn').forEach(b=>b.className='select-btn');
+        btn.className='select-btn active';
+        adv();
+      });
+      row.appendChild(btn);
+    });
+    return row;
   }
   if(field.type==='textarea'){
-    return h('textarea',{className:'field-input',rows:'3',placeholder:'入力してください',value:value||'',onInput:(e)=>onChange(e.target.value)});
+    const ta=document.createElement('textarea');ta.className='field-input';ta.rows=3;ta.placeholder='入力してください';
+    ta.value=value||'';
+    ta.addEventListener('input',()=>onChange(ta.value));
+    return ta;
   }
-  // number & text: no auto-advance, just save on input
-  return h('input',{className:'field-input',type:'text',inputMode:field.type==='number'?'decimal':'text',
-    placeholder:'入力してください',value:String(value??''),onInput:(e)=>onChange(e.target.value)});
+  // number & text
+  const inp=document.createElement('input');inp.className='field-input';inp.type='text';
+  inp.inputMode=field.type==='number'?'decimal':'text';
+  inp.placeholder='入力してください';inp.value=String(value??'');
+  inp.addEventListener('input',()=>onChange(inp.value));
+  inp.addEventListener('keydown',onKey);
+  return inp;
 }
 
 function renderGroup(key,title,locStr,items,section,opts){
